@@ -1,0 +1,6 @@
+requests
+requests
+google-genai
+python-dotenv
+pillow
+pymongo
