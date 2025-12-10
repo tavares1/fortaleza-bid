@@ -14,11 +14,39 @@ class GeminiService:
         self.api_key = Config.GOOGLE_API_KEY
         self.client = genai.Client(api_key=self.api_key)
 
-    MODELS = [
-        'gemma-3-27b-it',
-        'gemma-3-12b-it',
-        'gemma-3-4b-it',
-        'gemma-3-1b-it'
+    # Models prioritized by capability and speed/cost trade-offs
+    # Vision models for Captcha/Images
+    VISION_MODELS = [
+        'models/gemini-2.0-flash-exp-image-generation', # Specific for image gen? No, this is likely generation. Let's use standard reasoning ones first.
+        # Actually user list has many models. Let's prioritize known good vision ones.
+        'models/gemini-2.0-flash-exp',
+        'models/gemini-2.0-flash',
+        'models/gemini-2.5-flash-image-preview',
+        'models/gemini-2.5-flash-image',
+        'models/gemini-1.5-flash', # Fallback standard
+        'models/gemini-1.5-pro',
+        'models/gemini-pro-vision', # Legacy if available
+        # Adding others from list that sound like they handle multimodal
+        'models/gemini-3-pro-image-preview',
+        'models/gemini-2.0-flash-lite-preview-02-05',
+    ]
+
+    # Text models for Tweets/Logic (include Vision models here too as they are good at text)
+    TEXT_MODELS = [
+        'models/gemini-2.5-flash',
+        'models/gemini-2.5-pro',
+        'models/gemini-2.0-flash-exp',
+        'models/gemini-2.0-flash',
+        'models/gemini-2.0-flash-lite',
+        'models/gemini-2.0-flash-lite-001',
+        'models/gemma-3-27b-it',
+        'models/gemma-3-12b-it',
+        'models/gemma-3-4b-it', 
+        'models/gemma-3-1b-it',
+        'models/gemini-exp-1206',
+        'models/gemini-flash-latest',
+        'models/gemini-pro-latest',
+        'models/gemini-3-pro-preview',
     ]
 
     def _preprocess_image(self, image_bytes):
@@ -45,36 +73,50 @@ class GeminiService:
             print(f"Error processing image: {e}")
             return image_bytes
 
-    def _generate_with_retry(self, contents, temperature=0.0):
-        for model in self.MODELS:
-            try:
-                print(f"Attempting to generate content using model: {model}")
-                response = self.client.models.generate_content(
-                    model=model,
-                    contents=contents,
-                    config=types.GenerateContentConfig(temperature=temperature)
-                )
-                return response.text.strip()
-            except Exception as e:
-                # ... existing error handling ...
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    print(f"Model {model} exhausted (429). Trying next model...")
-                    time.sleep(1) # Small delay to be safe
-                    continue
-                else:
-                    # If it's another error, we might want to fail or retry? 
-                    # User only specified 429 behavior. 
-                    # Let's assume other errors are blocking for that model but we could try others?
-                    # Usually 429 is the only one suggesting "try another resource".
-                    # Let's re-raise if it's not 429 to avoid masking real bugs, 
-                    # OR we can treat it as a model failure and try next.
-                    # Given the instruction "when generation returns 429... try next", strict interpretation
-                    # implies only 429 triggers fallback. But robust code often falls back on 5xx too.
-                    # I will stick to 429 as requested.
-                    print(f"Error calling Gemini with model {model}: {e}")
-                    raise e
+    def _generate_with_retry(self, contents, temperature=0.0, is_vision=False):
+        """
+        Robust generation with model rotation and waiting strategy.
+        """
+        models = self.VISION_MODELS if is_vision else self.TEXT_MODELS
         
-        raise Exception("All models failed with 429/Resource Exhausted.")
+        max_cycles = 2 # How many times to cycle through the entire list
+        cycle_count = 0
+        
+        while cycle_count < max_cycles:
+            for model in models:
+                try:
+                    # Clean model name if needed (sometimes 'models/' prefix is optional but genai usually handles it)
+                    print(f"Attempting to generate content using model: {model}")
+                    response = self.client.models.generate_content(
+                        model=model,
+                        contents=contents,
+                        config=types.GenerateContentConfig(temperature=temperature)
+                    )
+                    return response.text.strip()
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "429" in error_str or "resource_exhausted" in error_str or "exhausted" in error_str:
+                        print(f"Model {model} exhausted (429). Trying next model...")
+                        # Small delay to prevent tight loop if local rate limits apply
+                        time.sleep(0.5) 
+                        continue
+                    else:
+                        print(f"Error calling Gemini with model {model}: {e}")
+                        # For non-429 errors, we might want to try other models too, 
+                        # as 'not found' or 'invalid argument' could be model specific.
+                        # But generally 429 is the main reason to rotate.
+                        # We will log and rotate for safety.
+                        continue
+            
+            # If we exit the for loop, it means ALL models failed in this cycle
+            cycle_count += 1
+            if cycle_count < max_cycles:
+                print("All models exhausted. Waiting 60 seconds before next cycle...")
+                time.sleep(60)
+            else:
+                print("Max retry cycles reached. All models failed.")
+        
+        raise Exception("All models failed after retries.")
 
     def solve_captcha(self, base64_image_str):
         clean_base64 = base64_image_str.strip('"').strip()
@@ -110,7 +152,8 @@ Output: Return ONLY the 4 letters found, with no additional text or whitespace.
                 types.Part.from_text(text=prompt),
                 types.Part.from_bytes(data=processed_bytes, mime_type="image/png")
             ],
-            temperature=0.0
+            temperature=0.0,
+            is_vision=True
         )
         # Clean result (keep only alphanumeric, max 4 chars)
         import re
@@ -126,8 +169,6 @@ Output: Return ONLY the 4 letters found, with no additional text or whitespace.
         data_for_prompt = contract_data.copy()
         if '_id' in data_for_prompt:
             del data_for_prompt['_id']
-        # Also convert any datetime objects to string if present (just in case)
-        # simplistic approach: use default=str in dumps
         
         json_input = json.dumps(data_for_prompt, indent=2, ensure_ascii=False, default=str)
 
@@ -175,8 +216,11 @@ Apenas o texto final do tweet.
         """
 
         try:
-            return self._generate_with_retry(contents=[types.Part.from_text(text=prompt_text)])
+            return self._generate_with_retry(contents=[types.Part.from_text(text=prompt_text)], is_vision=False)
         except Exception as e:
             print(f"Error generating tweet with Gemini: {e}")
             # Fallback text if AI fails
+            nome = contract_data.get('nome', 'Jogador')
+            apelido = contract_data.get('apelido', 'Desconhecido')
+            tipo_contrato = contract_data.get('tipo_contrato', '')
             return f"BID Publicado: {nome} ({apelido}) - {tipo_contrato}. #FortalezaEC"
