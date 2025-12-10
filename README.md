@@ -1,84 +1,62 @@
-# Monitor de BID do Fortaleza
+# Fortaleza BID Monitor (Radar do Pici)
 
-Este projeto monitora o BID (Boletim Informativo Diário) da CBF em busca de novos contratos relacionados ao **Fortaleza Esporte Clube**. Ele utiliza o **Google Gemini** para resolver captchas e gerar postagens criativas para redes sociais, e a **API do Twitter** para publicar automaticamente as novidades.
+A Python microservice that monitors the CBF BID (Boletim Informativo Diário) for new contracts related to **Fortaleza Esporte Clube** and publishes updates to **Twitter (X)** and **Threads**.
 
-## Funcionalidades
+## Features
 
-- **Coleta Automatizada**: Busca e resolve captchas do site do BID da CBF.
-- **Integração de Busca**: Pesquisa especificamente por contratos do Fortaleza EC.
-- **Persistência de Dados**: Salva dados únicos de contratos no MongoDB para evitar duplicatas.
-- **Mídias Sociais com IA**: Usa o Gemini para gerar tweets engajadores sobre novos jogadores/contratos.
-- **Bot do Twitter**: Publica atualizações automaticamente no Twitter (X).
-- **Arquitetura MVC**: Estrutura de código modular para melhor manutenção.
+- 🔍 **Automated Monitoring**: Checks CBF's BID every hour.
+- 🤖 **AI Content Generation**: Uses Google Gemini to summarize contract details into engaging social media posts.
+- 🐦 **Multi-Platform**: Posts to Twitter and Threads.
+- 🔁 **Resilient**: Retries failed posts (e.g., due to rate limits) in the next cycle.
+- 🌐 **Self-Hosted**: Designed to run via Docker Compose with Cloudflare Tunnel for secure external access.
 
-## Estrutura do Projeto
+## Local Setup
 
-```
-/
-├── app/
-│   ├── config.py          # Configuração e Variáveis de Ambiente
-│   ├── controllers/       # Lógica de Negócio (BidController)
-│   ├── models/            # Interação com Banco de Dados (ContractRepository)
-│   ├── services/          # Serviços Externos (CBF, Gemini, Twitter)
-│   └── __init__.py
-├── main.py                # Ponto de Entrada da Aplicação
-├── Dockerfile             # Configuração do Docker
-├── docker-compose.yml     # Orquestração de Containers (App + Mongo + Mongo Express)
-└── requirements.txt       # Dependências Python
-```
-
-## Pré-requisitos
-
-- **Docker** e **Docker Compose** instalados.
-- **Chave de API do Google Cloud** (Gemini).
-- **Credenciais da API do Twitter** (Opcional, para postagem automática).
-
-## Configuração
-
-1.  **Clone o repositório**:
+1.  **Clone the repo**:
     ```bash
-    git clone <url-do-repositorio>
+    git clone https://github.com/tavares1/fortaleza-bid.git
     cd fortaleza-bid
     ```
 
-2.  **Configure o Ambiente**:
-    Copie o arquivo de exemplo e atualize com suas chaves.
+2.  **Environment Variables**:
+    Copy `.env.example` to `.env` and fill in your credentials.
     ```bash
     cp .env.example .env
     ```
-    
-    Edite o arquivo `.env`:
-    ```env
-    # Banco de Dados
-    MONGO_URI=mongodb://mongo:27017/ 
 
-    # IA
-    GOOGLE_API_KEY=sua_chave_gemini_aqui
-
-    # Twitter (Opcional - deixe em branco para modo "Dry Run")
-    TWITTER_API_KEY=
-    TWITTER_API_SECRET=
-    TWITTER_ACCESS_TOKEN=
-    TWITTER_ACCESS_TOKEN_SECRET=
-    ```
-
-## Executando com Docker Compose
-
-A melhor maneira de rodar o projeto é utilizando o Docker Compose, que subirá a aplicação, o banco de dados MongoDB e a interface administrativa Mongo Express.
-
-1.  **Subir os serviços**:
+3.  **Run with Docker**:
     ```bash
     docker-compose up --build
     ```
 
-2.  **Acessando os Serviços**:
-    - **Aplicação**: Acompanhe os logs no terminal para ver o processo de busca e publicação.
-    - **Mongo Express**: Acesse `http://localhost:8081` para visualizar os dados salvos no banco de dados.
+## Deployment (GitHub Actions)
 
-## Como Funciona
+This project is configured to deploy automatically to a self-hosted runner when you push to the `main` branch.
 
-1.  **Inicialização**: Visita o site da CBF para obter cookies de sessão e tokens CSRF.
-2.  **Captcha**: Baixa a imagem do captcha e a envia para o Gemini extrair o texto.
-3.  **Busca**: Envia o captcha resolvido para buscar contratos do "Fortaleza" (ID 63238).
-4.  **Filtragem e Salvamento**: Verifica no MongoDB se existem contratos. Novos contratos são salvos.
-5.  **Publicação**: Se novos contratos forem encontrados, o Gemini gera um tweet e a aplicação o publica no Twitter.
+### 1. Self-Hosted Runner
+Ensure your server is configured as a self-hosted runner for this repository.
+
+### 2. GitHub Secrets
+You must configure the following **Repository Secrets** in GitHub (`Settings` -> `Secrets and variables` -> `Actions` -> `New repository secret`):
+
+| Secret Name | Description |
+| :--- | :--- |
+| `GOOGLE_API_KEY` | Your Google Gemini API Key. |
+| `TWITTER_API_KEY` | Twitter API Key (Consumer Key). |
+| `TWITTER_API_SECRET` | Twitter API Secret (Consumer Secret). |
+| `TWITTER_ACCESS_TOKEN` | Twitter Access Token. |
+| `TWITTER_ACCESS_TOKEN_SECRET` | Twitter Access Token Secret. |
+| `THREADS_USER_ID` | Your Threads User ID. |
+| `THREADS_ACCESS_TOKEN` | Your Threads Access Token. |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Token for cloudflared tunnel service. |
+| `MONGO_URI` | (Optional) Full connection string if using external Mongo. |
+
+### 3. Deploy
+Simply push to main:
+```bash
+git push origin main
+```
+The workflow will:
+1.  Checkout code on your server.
+2.  Inject the secrets into a secure `.env` file.
+3.  Rebuild and restart the containers.
