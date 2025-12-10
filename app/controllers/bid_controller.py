@@ -1,18 +1,34 @@
 from app.services.cbf_service import CBFService
 from app.services.gemini_service import GeminiService
-from app.services.twitter_service import TwitterService
+from app.services.social.twitter_service import TwitterService
+from app.services.social.threads_service import ThreadsService
 from app.models.contract_repository import ContractRepository
+from app.use_cases.search_bid import SearchBidUseCase
+from app.use_cases.enrich_athlete import EnrichAthleteUseCase
+from app.use_cases.sync_social import SyncSocialUseCase
+import time
 
 class BidController:
     def __init__(self):
+        # Initialize Services
         self.cbf_service = CBFService()
         self.gemini_service = GeminiService()
         self.twitter_service = TwitterService()
+        self.threads_service = ThreadsService()
         self.repository = ContractRepository()
+        
+        # Initialize Use Cases
+        self.search_use_case = SearchBidUseCase(self.cbf_service, self.gemini_service)
+        self.enrich_use_case = EnrichAthleteUseCase(self.cbf_service, self.gemini_service, self.repository)
+        
+        # Sync Use Case with multiple providers
+        self.sync_use_case = SyncSocialUseCase(
+            self.repository, 
+            self.gemini_service, 
+            providers=[self.twitter_service, self.threads_service]
+        )
 
     def run(self):
-        import time
-        
         # 1. Initialize CBF Session
         self.cbf_service.initialize_session()
         
@@ -20,71 +36,54 @@ class BidController:
         max_requests_per_minute = 29
         minute_start_time = time.time()
 
-        while True:
-            # Rate Limiting Check
+        def check_rate_limit(count):
+            nonlocal minute_start_time
             current_time = time.time()
             elapsed_time = current_time - minute_start_time
             
             if elapsed_time >= 60:
-                # Reset counter if a minute has passed
-                requests_count = 0
+                count = 0
                 minute_start_time = time.time()
                 print("--- New minute started for rate limiting ---")
             
-            if requests_count >= max_requests_per_minute:
-                # Wait for the rest of the minute
-                wait_time = 60 - elapsed_time + 1 # +1 buffer
-                print(f"Rate limit reached ({requests_count}/{max_requests_per_minute}). Waiting {wait_time:.2f} seconds...")
-                time.sleep(wait_time)
-                # Reset after waiting
-                requests_count = 0
+            if count >= max_requests_per_minute:
+                wait_time = 60 - elapsed_time + 1
+                if wait_time > 0:
+                    print(f"Rate limit reaching ({count}). Waiting {wait_time:.2f}s...")
+                    time.sleep(wait_time)
+                count = 0
                 minute_start_time = time.time()
             
-            requests_count += 1
-            print(f"\nAttempt {requests_count} in current minute...")
+            return count
 
-            try:
-                # 2. Fetch Captcha
-                print("Fetching captcha...")
-                base64_str = self.cbf_service.get_captcha_base64()
-                
-                # 3. Solve Captcha
-                print("Solving captcha...")
-                captcha_text = self.gemini_service.solve_captcha(base64_str)
-                print(f"CAPTCHA SOLVED: {captcha_text}")
-
-                # 4. Perform Search
-                print("Performing search...")
-                results = self.cbf_service.perform_search(captcha_text)
-
-                # Check if results is not None (None means error/invalid captcha)
-                # Empty list [] is a valid result (search success but no items found)
-                if results is not None:
-                    print("Search successful!")
-                    break  # Success! Exit loop.
-                else:
-                    print("Search failed (likely invalid captcha). Retrying...")
-                    # Optimization: Short sleep to prevent slam if not strictly rate limited by minute logic
-                    time.sleep(1) 
-                    
-            except Exception as e:
-                print(f"Error in main loop: {e}")
-                time.sleep(1)
-
-        # 5. Process Results (outside loop, as we only get here on success)
-        if results:
-            print(f"Found {len(results)} items.")
+        # Main Loop
+        while True:
+            # Rate Limit for Search Step
+            requests_count = check_rate_limit(requests_count)
+            requests_count += 2 # Captcha + Search estimates
             
-            # Save Results
-            new_contracts = self.repository.save_contracts(results)
-            print(f"Total new items saved: {len(new_contracts)}")
-
-            # 6. Tweet new contracts
-            if new_contracts:
-                print("Publishing new contracts to Twitter...")
-                for contract in new_contracts:
-                    tweet_text = self.gemini_service.generate_tweet_text(contract)
-                    self.twitter_service.publish(tweet_text)
+            # --- 1. Search ---
+            results = self.search_use_case.execute()
+            
+            # --- 2. Enrich & Save ---
+            if results:
+                print(f"[Controller] Found {len(results)} items. Starting enrichment...")
+                for athlete in results:
+                    # Rate limit for Enrichment
+                    requests_count = check_rate_limit(requests_count)
+                    requests_count += 2 # Captcha + History Fetch estimates
                     
-        else:
-            print("Search returned no items (empty).")
+                    self.enrich_use_case.execute(athlete)
+            
+            else:
+                # If no results or failed, wait a bit before next search loop
+                print("[Controller] No results or search failed. Waiting before retry...")
+                time.sleep(10) # 10s delay between search attempts if empty/fail
+
+            # --- 3. Sync Social Media ---
+            # We run sync after each search cycle.
+            self.sync_use_case.execute()
+            
+            # stability delay
+            print("[Controller] Cycle complete. Waiting 60s before next search cycle...")
+            time.sleep(60)

@@ -20,6 +20,10 @@ class Config:
     TWITTER_API_SECRET = get_env_var('TWITTER_API_SECRET', required=False)
     TWITTER_ACCESS_TOKEN = get_env_var('TWITTER_ACCESS_TOKEN', required=False)
     TWITTER_ACCESS_TOKEN_SECRET = get_env_var('TWITTER_ACCESS_TOKEN_SECRET', required=False)
+
+    # Threads Credentials
+    THREADS_USER_ID = get_env_var('THREADS_USER_ID', required=False)
+    THREADS_ACCESS_TOKEN = get_env_var('THREADS_ACCESS_TOKEN', required=False)
     
     # Search Config
     SEARCH_DATE = get_env_var('SEARCH_DATE', required=False)
