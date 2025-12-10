@@ -1,50 +1,84 @@
-# CBF Captcha Solver
+# Monitor de BID do Fortaleza
 
-This project fetches a captcha from cbf.com.br and solves it using Google's Gemini AI.
+Este projeto monitora o BID (Boletim Informativo Diário) da CBF em busca de novos contratos relacionados ao **Fortaleza Esporte Clube**. Ele utiliza o **Google Gemini** para resolver captchas e gerar postagens criativas para redes sociais, e a **API do Twitter** para publicar automaticamente as novidades.
 
-## Prerequisites
+## Funcionalidades
 
-- Docker
-- A Google Cloud API Key with access to Gemini API.
+- **Coleta Automatizada**: Busca e resolve captchas do site do BID da CBF.
+- **Integração de Busca**: Pesquisa especificamente por contratos do Fortaleza EC.
+- **Persistência de Dados**: Salva dados únicos de contratos no MongoDB para evitar duplicatas.
+- **Mídias Sociais com IA**: Usa o Gemini para gerar tweets engajadores sobre novos jogadores/contratos.
+- **Bot do Twitter**: Publica atualizações automaticamente no Twitter (X).
+- **Arquitetura MVC**: Estrutura de código modular para melhor manutenção.
 
-## Setup
+## Estrutura do Projeto
 
-1.  Clone this repository or navigate to the directory.
-2.  Copy `.env.example` to `.env`:
+```
+/
+├── app/
+│   ├── config.py          # Configuração e Variáveis de Ambiente
+│   ├── controllers/       # Lógica de Negócio (BidController)
+│   ├── models/            # Interação com Banco de Dados (ContractRepository)
+│   ├── services/          # Serviços Externos (CBF, Gemini, Twitter)
+│   └── __init__.py
+├── main.py                # Ponto de Entrada da Aplicação
+├── Dockerfile             # Configuração do Docker
+├── docker-compose.yml     # Orquestração de Containers (App + Mongo + Mongo Express)
+└── requirements.txt       # Dependências Python
+```
+
+## Pré-requisitos
+
+- **Docker** e **Docker Compose** instalados.
+- **Chave de API do Google Cloud** (Gemini).
+- **Credenciais da API do Twitter** (Opcional, para postagem automática).
+
+## Configuração
+
+1.  **Clone o repositório**:
+    ```bash
+    git clone <url-do-repositorio>
+    cd fortaleza-bid
+    ```
+
+2.  **Configure o Ambiente**:
+    Copie o arquivo de exemplo e atualize com suas chaves.
     ```bash
     cp .env.example .env
     ```
-3.  Open `.env` and fill in the required values:
-    - `GOOGLE_API_KEY`: Your Gemini API Key (Required).
+    
+    Edite o arquivo `.env`:
+    ```env
+    # Banco de Dados
+    MONGO_URI=mongodb://mongo:27017/ 
 
-    > **Note**: Even if you don't provide the CBF tokens, the script will attempt to fetch the captcha. Any new cookies received from the server will be printed to the console.
+    # IA
+    GOOGLE_API_KEY=sua_chave_gemini_aqui
 
-## Running with Docker
-
-1.  **Build the image**:
-    This creates a Docker image named `cbf-solver` containing the application and its dependencies.
-    ```bash
-    docker build -t cbf-solver .
+    # Twitter (Opcional - deixe em branco para modo "Dry Run")
+    TWITTER_API_KEY=
+    TWITTER_API_SECRET=
+    TWITTER_ACCESS_TOKEN=
+    TWITTER_ACCESS_TOKEN_SECRET=
     ```
 
-2.  **Run the container**:
-    This runs the script inside the container. We pass the `.env` file to provide the necessary variables.
+## Executando com Docker Compose
+
+A melhor maneira de rodar o projeto é utilizando o Docker Compose, que subirá a aplicação, o banco de dados MongoDB e a interface administrativa Mongo Express.
+
+1.  **Subir os serviços**:
     ```bash
-    docker run --rm --env-file .env cbf-solver
+    docker-compose up --build
     ```
-    *The `--rm` flag automatically removes the container after it exits to keep your system clean.*
 
-## Output
+2.  **Acessando os Serviços**:
+    - **Aplicação**: Acompanhe os logs no terminal para ver o processo de busca e publicação.
+    - **Mongo Express**: Acesse `http://localhost:8081` para visualizar os dados salvos no banco de dados.
 
-The script will output the solving process logs, including any new cookies received from the server, and finally the solved text:
+## Como Funciona
 
-```text
-Fetching captcha...
-Cookies received from server:
-cookiesession1: <value>
-...
-Captcha fetched (length: 1234). Solving...
---------------------
-CAPTCHA SOLVED: <The Text>
---------------------
-```
+1.  **Inicialização**: Visita o site da CBF para obter cookies de sessão e tokens CSRF.
+2.  **Captcha**: Baixa a imagem do captcha e a envia para o Gemini extrair o texto.
+3.  **Busca**: Envia o captcha resolvido para buscar contratos do "Fortaleza" (ID 63238).
+4.  **Filtragem e Salvamento**: Verifica no MongoDB se existem contratos. Novos contratos são salvos.
+5.  **Publicação**: Se novos contratos forem encontrados, o Gemini gera um tweet e a aplicação o publica no Twitter.
