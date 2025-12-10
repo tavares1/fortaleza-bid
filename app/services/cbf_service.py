@@ -66,7 +66,7 @@ class CBFService:
         current_date = search_date or Config.SEARCH_DATE or datetime.now().strftime('%d/%m/%Y')
         
         payload = {
-            'data': "08/12/2025",
+            'data': "21/08/2025",
             'uf': 'CE',
             'codigo_clube': '63238',
             'captcha': captcha_text
@@ -133,4 +133,52 @@ class CBFService:
             return None
         except json.JSONDecodeError:
             print("Error decoding JSON response.")
+            return None
+
+    def get_atleta_historico(self, codigo_atleta, captcha_text):
+        url = f'{self.base_url}atleta-historico-json'
+        
+        headers = {
+            'Accept': '*/*',
+            'Accept-Language': 'pt-BR,pt;q=0.7',
+            'Connection': 'keep-alive',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Origin': 'https://bid.cbf.com.br',
+            'Referer': f'https://bid.cbf.com.br/atleta-competicoes/{codigo_atleta}',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-GPC': '1',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+            'X-Requested-With': 'XMLHttpRequest',
+            'sec-ch-ua': '"Brave";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+        }
+
+        payload = {
+            'codigo_atleta': codigo_atleta,
+            'captcha': captcha_text
+        }
+
+        print(f"Fetching history for athlete {codigo_atleta}...")
+
+        try:
+            response = self.session.post(url, headers=headers, data=payload)
+            response.raise_for_status()
+            
+            data = response.json()
+            # The response seems to be the 'historico' object directly or contained within.
+            # Based on user payload: "historico": { "2025": [...], ... }
+            # Let's assume the response IS the structure that goes into "historico" or similar.
+            # Actually, typically these endpoints return the data structure directly. 
+            # If the user says: "O endpoint busca-json será responsável por trazer o array de items como é hoje... E o novo model... historico: { ... }"
+            # It implies we take the response of this endpoint and put it into 'historico' key.
+            return data
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching athlete history: {e}")
+            return None
+        except json.JSONDecodeError:
+            print("Error decoding JSON history response.")
             return None

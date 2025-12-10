@@ -7,6 +7,8 @@ from google import genai
 from google.genai import types
 from app.config import Config
 
+import json
+
 class GeminiService:
     def __init__(self):
         self.api_key = Config.GOOGLE_API_KEY
@@ -119,26 +121,15 @@ Output: Return ONLY the 4 letters found, with no additional text or whitespace.
         """
         Generates a creative tweet about the contract.
         """
-        from datetime import datetime
+    
+        # Prepare data for JSON serialization (remove ObjectId)
+        data_for_prompt = contract_data.copy()
+        if '_id' in data_for_prompt:
+            del data_for_prompt['_id']
+        # Also convert any datetime objects to string if present (just in case)
+        # simplistic approach: use default=str in dumps
         
-        # Extract relevant info
-        nome = contract_data.get('nome', 'N/A')
-        apelido = contract_data.get('apelido', '')
-        clube = contract_data.get('clube', 'Fortaleza')
-        tipo_contrato = contract_data.get('tipocontrato', 'Contrato') # Corrected key likely 'tipocontrato' based on prev logs
-        data_nasc = contract_data.get('data_nascimento', '')
-        uf = contract_data.get('uf', '')
-        
-        # Calculate Age
-        idade = "N/A"
-        if data_nasc:
-            try:
-                birth_date = datetime.strptime(data_nasc, "%Y-%m-%d")
-                today = datetime.today()
-                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-                idade = f"{age} anos"
-            except:
-                pass
+        json_input = json.dumps(data_for_prompt, indent=2, ensure_ascii=False, default=str)
 
         prompt_text = f"""
         # ROLE
@@ -172,14 +163,13 @@ Analise o JSON do BID. Se for "Contrato Definitivo", trate como uma **NOVA CONTR
     * Substitua "Fortaleza" por **@fortalezaec**.
 
 4.  **MONTAGEM DO TWEET**:
-    * **Linha 1:** Emoji (🦁, ✍️, 🆕) + [MANCHETE EM UNICODE NEGRITO].
+    * **Linha 1:** Emoji (🦁, ✍️, 🆕, 📝, 📊, 🔴, 🔵, ⚪) + [MANCHETE EM UNICODE NEGRITO].
     * **Linha 3:** Anuncie a compra/chegada do atleta [Nome em Unicode] ao @fortalezaec.
     * **Linha 5 (O Pulo do Gato):** A análise feita no passo 2. Ex: "O reforço chega com status de titular..." ou "Vinha sendo utilizado como opção para o 2º tempo em sua última temporada..."
     * **Linha 7:** #FortalezaEC #BID #LeãoDoPici
 
 # JSON INPUT
-{{JSON_DO_USUARIO}}
-
+"""+json_input+"""
 # OUTPUT FORMAT
 Apenas o texto final do tweet.
         """
