@@ -14,39 +14,12 @@ class GeminiService:
         self.api_key = Config.GOOGLE_API_KEY
         self.client = genai.Client(api_key=self.api_key)
 
-    # Models prioritized by capability and speed/cost trade-offs
-    # Vision models for Captcha/Images
-    VISION_MODELS = [
-        'models/gemini-2.0-flash-exp-image-generation', # Specific for image gen? No, this is likely generation. Let's use standard reasoning ones first.
-        # Actually user list has many models. Let's prioritize known good vision ones.
-        'models/gemini-2.0-flash-exp',
-        'models/gemini-2.0-flash',
-        'models/gemini-2.5-flash-image-preview',
-        'models/gemini-2.5-flash-image',
-        'models/gemini-1.5-flash', # Fallback standard
-        'models/gemini-1.5-pro',
-        'models/gemini-pro-vision', # Legacy if available
-        # Adding others from list that sound like they handle multimodal
-        'models/gemini-3-pro-image-preview',
-        'models/gemini-2.0-flash-lite-preview-02-05',
-    ]
-
-    # Text models for Tweets/Logic (include Vision models here too as they are good at text)
     TEXT_MODELS = [
-        'models/gemini-2.5-flash',
-        'models/gemini-2.5-pro',
-        'models/gemini-2.0-flash-exp',
-        'models/gemini-2.0-flash',
-        'models/gemini-2.0-flash-lite',
-        'models/gemini-2.0-flash-lite-001',
         'models/gemma-3-27b-it',
         'models/gemma-3-12b-it',
         'models/gemma-3-4b-it', 
         'models/gemma-3-1b-it',
-        'models/gemini-exp-1206',
-        'models/gemini-flash-latest',
-        'models/gemini-pro-latest',
-        'models/gemini-3-pro-preview',
+        'models/gemini-2.5-flash',
     ]
 
     def _preprocess_image(self, image_bytes):
@@ -77,7 +50,7 @@ class GeminiService:
         """
         Robust generation with model rotation and waiting strategy.
         """
-        models = self.VISION_MODELS if is_vision else self.TEXT_MODELS
+        models = self.TEXT_MODELS
         
         max_cycles = 2 # How many times to cycle through the entire list
         cycle_count = 0
@@ -97,15 +70,15 @@ class GeminiService:
                     error_str = str(e).lower()
                     if "429" in error_str or "resource_exhausted" in error_str or "exhausted" in error_str:
                         print(f"Model {model} exhausted (429). Trying next model...")
-                        # Small delay to prevent tight loop if local rate limits apply
                         time.sleep(0.5) 
+                        continue
+                    elif "404" in error_str or "not_found" in error_str:
+                        print(f"Model {model} not found (404). Removing from list and trying next...")
+                        # Optional: Remove from list to avoid hitting it again in next cycle
+                        # models.remove(model) # Dangerous to modify list while iterating
                         continue
                     else:
                         print(f"Error calling Gemini with model {model}: {e}")
-                        # For non-429 errors, we might want to try other models too, 
-                        # as 'not found' or 'invalid argument' could be model specific.
-                        # But generally 429 is the main reason to rotate.
-                        # We will log and rotate for safety.
                         continue
             
             # If we exit the for loop, it means ALL models failed in this cycle
