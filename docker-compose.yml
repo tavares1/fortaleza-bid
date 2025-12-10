@@ -38,5 +38,10 @@ services:
     depends_on:
       - mongo
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+
 volumes:
   mongo_data:
