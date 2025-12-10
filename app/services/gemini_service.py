@@ -163,7 +163,7 @@ Analise o JSON do BID. Se for "Contrato Definitivo", trate como uma **NOVA CONTR
     * Substitua "Fortaleza" por **@fortalezaec**.
 
 4.  **MONTAGEM DO TWEET**:
-    * **Linha 1:** Emoji (🦁, ✍️, 🆕, 📝, 📊, 🔴, 🔵, ⚪) + [MANCHETE EM UNICODE NEGRITO].
+    * **Linha 1:** Emoji (🦁, ✍️, 🆕, 📝, 📊, 🔴🔵⚪ ) + [MANCHETE EM UNICODE NEGRITO].
     * **Linha 3:** Anuncie a compra/chegada do atleta [Nome em Unicode] ao @fortalezaec.
     * **Linha 5 (O Pulo do Gato):** A análise feita no passo 2. Ex: "O reforço chega com status de titular..." ou "Vinha sendo utilizado como opção para o 2º tempo em sua última temporada..."
     * **Linha 7:** #FortalezaEC #BID #LeãoDoPici

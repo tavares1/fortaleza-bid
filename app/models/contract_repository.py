@@ -157,7 +157,8 @@ class ContractRepository:
             query = {
                 f'social_status.{platform_name}.posted': {'$ne': True}
             }
-            return list(self.collection.find(query).limit(limit))
+            # Sort by _id (timestamp) ascending to prioritize oldest (failed) items first
+            return list(self.collection.find(query).sort('_id', 1).limit(limit))
         except Exception as e:
             print(f"Error fetching pending posts for {platform_name}: {e}")
             return []

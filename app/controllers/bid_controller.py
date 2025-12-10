@@ -85,5 +85,5 @@ class BidController:
             self.sync_use_case.execute()
             
             # stability delay
-            print("[Controller] Cycle complete. Waiting 60s before next search cycle...")
-            time.sleep(60)
+            print("[Controller] Cycle complete. Waiting 3600s (1h) before next search cycle...")
+            time.sleep(3600)

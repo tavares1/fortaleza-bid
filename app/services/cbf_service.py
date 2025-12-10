@@ -66,7 +66,7 @@ class CBFService:
         current_date = search_date or Config.SEARCH_DATE or datetime.now().strftime('%d/%m/%Y')
         
         payload = {
-            'data': "21/08/2025",
+            'data': current_date,
             'uf': 'CE',
             'codigo_clube': '63238',
             'captcha': captcha_text
