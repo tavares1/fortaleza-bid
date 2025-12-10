@@ -8,6 +8,13 @@ services:
     environment:
       - MONGO_URI=mongodb://mongo:27017/
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - TWITTER_API_KEY=${TWITTER_API_KEY}
+      - TWITTER_API_SECRET=${TWITTER_API_SECRET}
+      - TWITTER_ACCESS_TOKEN=${TWITTER_ACCESS_TOKEN}
+      - TWITTER_ACCESS_TOKEN_SECRET=${TWITTER_ACCESS_TOKEN_SECRET}
+      - THREADS_USER_ID=${THREADS_USER_ID}
+      - THREADS_ACCESS_TOKEN=${THREADS_ACCESS_TOKEN}
+      - SEARCH_DATE=${SEARCH_DATE}
     volumes:
       - .:/app
     command: python main.py
