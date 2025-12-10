@@ -7,6 +7,7 @@ services:
     depends_on:
       - mongo
     environment:
+      - PYTHONDONTWRITEBYTECODE=1
       - MONGO_URI=mongodb://mongo:27017/
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - TWITTER_API_KEY=${TWITTER_API_KEY}
