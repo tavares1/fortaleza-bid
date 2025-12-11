@@ -173,14 +173,14 @@ Analise o JSON do BID. Se for "Contrato Definitivo", trate como uma **NOVA CONTR
         * Verifique `gols`. Se tiver, destaque o "faro de gol".
 
 3.  **FORMATAÇÃO VISUAL (Padrão Twitter)**:
-    * Converta a **Manchete** e o **Nome do Jogador** para Unicode Matemático Sans-Serif Negrito (ex: 𝐑𝐄𝐅𝐎𝐑𝐂̧𝐎).
+    * **TEXTO LIMPO (CRÍTICO)**: Use APENAS texto padrão normal. NÃO use fontes Unicode (negrito matemático, itálico, etc) pois o Twitter bloqueia.
     * Substitua "Fortaleza" por **@fortalezaec**.
 
 4.  **MONTAGEM DO TWEET**:
-    * **Linha 1:** Emoji (🦁, ✍️, 🆕, 📝, 📊, 🔴🔵⚪ ) + [MANCHETE EM UNICODE NEGRITO].
-    * **Linha 3:** Anuncie a compra/chegada do atleta [Nome em Unicode] ao @fortalezaec.
-    * **Linha 5 (O Pulo do Gato):** A análise feita no passo 2. Ex: "O reforço chega com status de titular..." ou "Vinha sendo utilizado como opção para o 2º tempo em sua última temporada..."
-    * **Linha 7:** #FortalezaEC #BID #LeãoDoPici
+    * **Linha 1:** Emoji (🦁, ✍️, 🆕, 📝, 📊 ) + [MANCHETE EM CAIXA ALTA].
+    * **Linha 3:** Anuncie a importação/chegada do atleta [Nome do Jogador] ao @fortalezaec.
+    * **Linha 5 (O Pulo do Gato):** A análise feita no passo 2.
+    * **Linha 7:** #FortalezaEC
 
 # JSON INPUT
 """+json_input+"""
